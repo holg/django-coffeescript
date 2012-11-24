@@ -1,9 +1,10 @@
 from ..cache import get_cache_key, get_hexdigest, get_hashed_mtime
 from ..settings import COFFEESCRIPT_EXECUTABLE, COFFEESCRIPT_USE_CACHE,\
-    COFFEESCRIPT_CACHE_TIMEOUT, COFFEESCRIPT_OUTPUT_DIR, POSIX_COMPATIBLE
+    COFFEESCRIPT_CACHE_TIMEOUT, COFFEESCRIPT_OUTPUT_DIR, POSIX_COMPATIBLE, COFFEESCRIPT_OUTPUT_DIR_ABS
 from django.conf import settings
 from django.core.cache import cache
 from django.template.base import Library, Node
+from django.contrib.staticfiles.finders import find as statics_finder
 from os.path import split, join, dirname, exists, basename
 import logging
 import shlex
@@ -55,19 +56,17 @@ def do_inlinecoffeescript(parser, token):
     return InlineCoffeescriptNode(nodelist)
 
 def coffeescript_paths(path):
-    
+
     # while developing it is more confortable
-    # searching for the coffeescripts rather then 
+    # searching for the coffeescripts rather then
     # doing collectstatics all the time
     if settings.DEBUG:
-        for sfdir in settings.STATICFILES_DIRS:
-            input_file = join(sfdir, path)
-            if exists(input_file):
-                output_dir = join(sfdir, COFFEESCRIPT_OUTPUT_DIR, dirname(path))
-                file_name = basename(path)
-                
-                return (input_file, file_name, output_dir)
-    
+        input_file = statics_finder(path)
+        if input_file:
+            output_dir = join(COFFEESCRIPT_OUTPUT_DIR_ABS, dirname(path))
+            file_name = basename(path)
+            return input_file, file_name, output_dir
+
     try:
         root = settings.STATIC_ROOT
     except AttributeError:
@@ -75,17 +74,17 @@ def coffeescript_paths(path):
 
     full_path = os.path.join(root, path)
     filename = os.path.split(path)[-1]
-    
+
     output_directory = os.path.join(root, COFFEESCRIPT_OUTPUT_DIR, os.path.dirname(path))
-    
-    return (full_path, filename, output_directory)
+
+    return full_path, filename, output_directory
 
 @register.simple_tag
 def coffeescript(path):
     logger.info("processing file %s" % path)
-    
+
     full_path, filename, output_directory = coffeescript_paths(path)
-    
+
     hashed_mtime = get_hashed_mtime(full_path)
 
     base_filename = filename.replace(".coffee","")
@@ -100,7 +99,7 @@ def coffeescript(path):
 
         args = shlex.split("%s -c -s -p" % COFFEESCRIPT_EXECUTABLE, posix=POSIX_COMPATIBLE)
         p = subprocess.Popen(args, stdin=subprocess.PIPE,
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, errors = p.communicate(source)
         if out:
             if not os.path.exists(output_directory):
