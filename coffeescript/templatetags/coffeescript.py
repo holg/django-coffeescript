@@ -10,6 +10,7 @@ import logging
 import shlex
 import subprocess
 import os
+import shutil
 
 
 
@@ -100,14 +101,20 @@ def coffeescript(path):
         p = subprocess.Popen(args, stdin=subprocess.PIPE,
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         out, errors = p.communicate()
+
         if not errors:
             # Remove old files
-            compiled_filename = os.path.split(output_path)[-1]
+
+            compiled_filename = os.path.basename(output_path)
+            shutil.move(os.path.join(output_directory, "%s.js" % base_filename),
+                        os.path.join(output_directory, compiled_filename))
             for filename in os.listdir(output_directory):
                 if filename.startswith(base_filename) and filename != compiled_filename:
                     os.remove(os.path.join(output_directory, filename))
         elif errors:
-            logger.error(errors)
+            print errors
+            print path
+            #logger.error(errors)
             return path
 
     return join(COFFEESCRIPT_OUTPUT_DIR,dirname(path),output_file)
