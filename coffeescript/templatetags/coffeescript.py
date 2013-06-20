@@ -93,21 +93,14 @@ def coffeescript(path):
     output_path = os.path.join(output_directory, output_file)
 
     if not os.path.exists(output_path):
-        source_file = open(full_path)
-        source = source_file.read()
-        source_file.close()
-
-        args = shlex.split("%s -c -s -p" % COFFEESCRIPT_EXECUTABLE, posix=POSIX_COMPATIBLE)
+        args = "export PATH=%s:$PATH && %s --output %s --compile %s" %(
+                           os.path.dirname(COFFEESCRIPT_EXECUTABLE), COFFEESCRIPT_EXECUTABLE, output_directory, full_path)
+        if not os.path.exists(output_directory):
+            os.makedirs(output_directory)
         p = subprocess.Popen(args, stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, errors = p.communicate(source)
-        if out:
-            if not os.path.exists(output_directory):
-                os.makedirs(output_directory)
-            compiled_file = open(output_path, "w+")
-            compiled_file.write(out)
-            compiled_file.close()
-
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        out, errors = p.communicate()
+        if not errors:
             # Remove old files
             compiled_filename = os.path.split(output_path)[-1]
             for filename in os.listdir(output_directory):
